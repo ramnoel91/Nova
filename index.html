@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Nova</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--panel:#0a0d14;--line:#162544;--cyan:#3b82f6;--cyan2:#1d4ed8;--text:#e2e8f5;--dim:#7b8aa8;--user:#0e1f47}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
+body{display:flex;flex-direction:column;height:100dvh;background:#000}
+header{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.55);backdrop-filter:blur(8px)}
+.logo{font-family:Orbitron;font-weight:700;letter-spacing:3px;color:var(--cyan);font-size:18px;flex:1;text-shadow:0 0 12px rgba(59,130,246,.6)}
+.status{font-size:11px;color:var(--dim);font-family:Orbitron;letter-spacing:1px}
+.status.on{color:var(--cyan)}
+.iconbtn{background:none;border:1px solid var(--line);color:var(--text);border-radius:10px;width:38px;height:38px;font-size:17px;cursor:pointer}
+.iconbtn:active{background:var(--panel)}
+#hero{display:flex;flex-direction:column;align-items:center;padding:6px 0 0;transition:all .4s}
+#hero.small{padding:4px 0 0}
+.orb{display:block;width:200px;height:200px;transition:width .4s,height .4s}
+#hero.small .orb{width:64px;height:64px}
+#setup .orb{width:190px;height:190px;flex:none}
+#circuit{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+header,#hero,#chat,#chips,footer{position:relative;z-index:1}
+
+
+
+.greet{margin-top:0;font-family:Orbitron;font-size:14px;color:var(--dim);letter-spacing:1px;text-align:center}
+#hero.small .greet{display:none}
+#chat{flex:1;overflow-y:auto;padding:12px 14px 6px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:86%;padding:10px 13px;border-radius:14px;line-height:1.45;font-size:15px;white-space:pre-wrap;word-wrap:break-word}
+.msg.user{align-self:flex-end;background:var(--user);border:1px solid #1e3a8a;border-bottom-right-radius:4px}
+.msg.ai{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.ai b{color:var(--cyan)}
+.msg.err{border-color:#7f1d1d;color:#fca5a5}
+.msg code{background:#020617;padding:1px 5px;border-radius:4px;font-size:13px}
+.copy{display:block;margin-top:6px;font-size:11px;color:var(--dim);background:none;border:none;cursor:pointer;padding:0}
+#chips{display:flex;gap:8px;overflow-x:auto;padding:4px 14px 8px;scrollbar-width:none}
+#chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;padding:7px 12px;font-size:13px;cursor:pointer}
+footer{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:rgba(0,0,0,.6)}
+textarea{flex:1;resize:none;background:var(--panel);border:1px solid var(--line);border-radius:14px;color:var(--text);padding:11px 13px;font:15px Inter;max-height:120px;outline:none}
+textarea:focus{border-color:var(--cyan2)}
+#send{width:46px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--cyan),var(--cyan2));color:#fff;font-size:20px;font-weight:700;cursor:pointer}
+#send:disabled{opacity:.4}
+#panel{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;z-index:9}
+#panel.open{display:flex}
+.sheet{width:100%;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding:18px 16px 24px;max-height:85dvh;overflow-y:auto}
+.sheet h3{font-family:Orbitron;font-size:13px;letter-spacing:2px;color:var(--cyan);margin:14px 0 8px}
+.sheet h3:first-child{margin-top:0}
+.sheet input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px;font:15px Inter}
+.persona{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.persona button{text-align:left;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:10px;cursor:pointer;font:13px Inter}
+.persona button.sel{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}
+.persona small{display:block;color:var(--dim);margin-top:3px;font-size:11px}
+.row{display:flex;gap:8px;margin-top:18px}
+.row button{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:600 14px Inter;cursor:pointer}
+.row .primary{background:var(--cyan2);border:none;color:#fff}
+.note{color:var(--dim);font-size:12px;margin-top:10px;line-height:1.4}
+#setup{position:fixed;inset:0;background:transparent;z-index:8;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;gap:14px}
+#setup.hide{display:none}
+#setup h2{font-family:Orbitron;color:var(--cyan);letter-spacing:3px;font-size:20px}
+#setup p{color:var(--dim);font-size:14px;line-height:1.5;max-width:340px}
+.models{display:flex;flex-direction:column;gap:8px;width:100%;max-width:360px}
+.models button{text-align:left;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px;font:14px Inter;cursor:pointer}
+.models button.sel{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}
+.models small{display:block;color:var(--dim);font-size:12px;margin-top:3px}
+.bigbtn{width:100%;max-width:360px;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--cyan),var(--cyan2));color:#fff;font:700 15px Inter;cursor:pointer}
+.bigbtn:disabled{opacity:.4}
+.bar{width:100%;max-width:360px;height:8px;background:var(--panel);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.bar div{height:100%;width:0;background:linear-gradient(90deg,var(--cyan2),var(--cyan));transition:width .3s}
+#prog{font-size:12px;color:var(--dim);min-height:32px;max-width:360px}
+.warn{color:#fca5a5!important}
+.smallbtn{background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px;width:100%;font:13px Inter;margin-top:6px;cursor:pointer}
+.acts{display:flex;gap:14px;margin-top:6px}
+.acts .copy{display:inline;margin:0}
+.notechip{display:inline-block;margin-top:8px;padding:5px 10px;border-radius:999px;border:1px solid var(--cyan2);color:var(--cyan);font-size:12px;cursor:pointer;background:rgba(37,99,235,.12)}
+#noteCount{position:absolute;top:-5px;right:-5px;background:var(--cyan2);color:#fff;font:600 10px Inter;border-radius:99px;padding:1px 5px}
+#noteCount:empty{display:none}
+#notesBtn{position:relative}
+#notes{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;z-index:9}
+#notes.open{display:flex}
+#notes .sheet{min-height:60dvh}
+.nhead{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.nhead h3{flex:1;margin:0!important}
+.nhead button{background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px 12px;font:600 13px Inter;cursor:pointer}
+.nhead .primary{background:var(--cyan2);border:none;color:#fff}
+#nsearch{margin-bottom:10px}
+.ncard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;cursor:pointer}
+.ncard b{display:block;font-size:14px;margin-bottom:3px}
+.ncard p{color:var(--dim);font-size:13px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.ncard small{color:var(--dim);font-size:11px;display:block;margin-top:5px}
+.nempty{color:var(--dim);text-align:center;padding:40px 10px;font-size:14px;line-height:1.5}
+#neBody{width:100%;min-height:42dvh;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px;font:15px/1.45 Inter;margin-top:8px;resize:vertical;outline:none}
+#neTitle{font-weight:600}
+.danger{color:#fca5a5!important;border-color:#7f1d1d!important}
+#voiceBtn.on{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 10px rgba(59,130,246,.5)}
+@media (max-width:380px){.status{display:none}}
+.sheet select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px;font:14px Inter}
+.vrow{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:13px;color:var(--dim)}
+.vrow input[type=range]{flex:1;accent-color:var(--cyan)}
+#mic{width:46px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:19px;cursor:pointer}
+#mic.live{background:#b91c1c;border-color:#ef4444;animation:micpulse 1s ease-in-out infinite}
+@keyframes micpulse{50%{box-shadow:0 0 0 6px rgba(239,68,68,.25)}}
+body:has(#setup:not(.hide)) :is(header,#hero,#chat,#chips,footer){visibility:hidden}
+.tgl{display:flex;gap:12px;align-items:flex-start;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;cursor:pointer}
+.tgl input{width:20px;height:20px;accent-color:var(--cyan);flex:none;margin-top:1px}
+.tgl b{display:block;font-size:14px}
+.tgl small{display:block;color:var(--dim);font-size:12px;margin-top:3px;line-height:1.35}
+#mic.wake{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 12px rgba(59,130,246,.5);animation:wakeglow 2.4s ease-in-out infinite}
+@keyframes wakeglow{50%{box-shadow:0 0 18px rgba(59,130,246,.85)}}
+#liveBtn{flex:none;padding:0 10px;border-radius:14px;border:1px solid var(--cyan2);background:rgba(37,99,235,.15);color:var(--cyan);font:700 12px Orbitron;letter-spacing:1px;cursor:pointer}
+#live{position:fixed;inset:0;z-index:7;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 22px calc(24px + env(safe-area-inset-bottom));text-align:center}
+#live.hide{display:none}
+body.live :is(header,#hero,#chat,#chips,footer){visibility:hidden}
+#live .ltop{position:absolute;top:16px;left:0;right:0;font:700 12px Orbitron;letter-spacing:4px;color:var(--cyan);display:flex;justify-content:center;align-items:center;gap:8px}
+#live .ltop i{width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;animation:micpulse 1.4s infinite}
+#liveOrb{width:min(78vw,330px);height:min(78vw,330px);cursor:pointer}
+#liveState{font:500 13px Orbitron;letter-spacing:2px;color:var(--cyan);margin-top:4px;min-height:18px}
+#liveYou{margin-top:22px;font-size:17px;color:var(--text);min-height:24px;max-width:340px;line-height:1.4}
+#liveNova{margin-top:10px;font-size:15px;color:var(--dim);min-height:44px;max-width:340px;line-height:1.45}
+.lbar{position:absolute;bottom:calc(28px + env(safe-area-inset-bottom));display:flex;gap:28px}
+.lbar button{width:64px;height:64px;border-radius:50%;border:1px solid var(--line);background:rgba(10,13,20,.8);color:var(--text);font-size:24px;cursor:pointer}
+#liveMute.off{background:#3f1d1d;border-color:#7f1d1d}
+#liveEnd{background:#b91c1c!important;border-color:#ef4444!important;color:#fff!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" id="logo">NOVA</div>
+  <span class="status" id="status">ONLINE</span>
+  <button class="iconbtn" id="notesBtn" title="Notes">📝<span id="noteCount"></span></button>
+  <button class="iconbtn" id="voiceBtn" title="Voice">🔇</button>
+  <button class="iconbtn" id="newBtn" title="New chat">＋</button>
+  <button class="iconbtn" id="setBtn" title="Settings">⚙</button>
+</header>
+
+<div id="hero"><canvas class="orb" id="orb"></canvas><div class="greet" id="greet">How can I help you today?</div></div>
+<div id="chat"></div>
+<div id="chips"></div>
+<footer>
+  <button id="liveBtn" title="Live mode">LIVE</button>
+  <textarea id="input" rows="1" placeholder="Talk to Nova…"></textarea>
+  <button id="mic" title="Speak">🎤</button>
+  <button id="send">➤</button>
+</footer>
+
+<div id="setup">
+  <canvas class="orb" id="setupOrb"></canvas>
+  <h2 style="margin-top:0">NOVA OFFLINE</h2>
+  <p id="setupMsg">Nova's brain runs right on your phone. No AI service, no account. Pick a brain to download once — after that it loads from your phone.</p>
+  <div class="models" id="models"></div>
+  <button class="bigbtn" id="startBtn">Download &amp; start</button>
+  <div class="bar"><div id="barFill"></div></div>
+  <div id="prog"></div>
+</div>
+
+<div id="live" class="hide">
+  <div class="ltop"><i></i>LIVE</div>
+  <canvas class="orb" id="liveOrb"></canvas>
+  <div id="liveState"></div>
+  <div id="liveYou"></div>
+  <div id="liveNova"></div>
+  <div class="lbar"><button id="liveMute" title="Mute mic">🎤</button><button id="liveEnd" title="End">✕</button></div>
+</div>
+
+<div id="notes"><div class="sheet">
+  <div id="nList">
+    <div class="nhead"><h3>NOTES</h3><button class="primary" id="nNew">＋ New</button><button id="nClose">Close</button></div>
+    <input id="nsearch" placeholder="Search notes…">
+    <div id="nItems"></div>
+  </div>
+  <div id="nEdit" style="display:none">
+    <div class="nhead"><button id="neBack">‹ Back</button><h3></h3><button id="neCopy">Copy</button><button class="primary" id="neSave">Save</button></div>
+    <input id="neTitle" placeholder="Title">
+    <textarea id="neBody" placeholder="Write your note…"></textarea>
+    <div class="row"><button class="danger" id="neDel">Delete note</button></div>
+  </div>
+</div></div>
+
+<div id="panel"><div class="sheet">
+  <h3>ASSISTANT NAME</h3>
+  <input id="aiName" maxlength="16">
+  <h3>YOUR NAME</h3>
+  <input id="userName" maxlength="24" placeholder="What should it call you?">
+  <h3>PERSONALITY</h3>
+  <div class="persona" id="personas"></div>
+  <h3>EXTRA INSTRUCTIONS</h3>
+  <input id="extra" placeholder="e.g. I work at a credit union, keep answers short">
+  <h3>VOICE</h3>
+  <select id="voiceSel"></select>
+  <div class="vrow">Speed <input type="range" id="vRate" min="0.6" max="1.6" step="0.1"> <span id="vRateLbl"></span></div>
+  <div class="vrow">Pitch <input type="range" id="vPitch" min="0.5" max="1.5" step="0.1"> <span id="vPitchLbl"></span></div>
+  <button class="smallbtn" id="vTest">▶ Test voice</button>
+  <h3>HANDS-FREE</h3>
+  <div id="hfBox">
+  <label class="tgl"><input type="checkbox" id="hfConvo"><span><b>Conversation mode</b><small>Tap 🎤 once — the mic turns back on after every answer. Say “stop” to end.</small></span></label>
+  <label class="tgl"><input type="checkbox" id="hfWake"><span><b>Wake word</b><small>Listens for “Hey <span id="wakeLbl">Nova</span>” while the app is open and the screen is on. Uses more battery.</small></span></label>
+  </div>
+  <h3>BRAIN</h3>
+  <p class="note" id="brainNote" style="margin-top:0"></p>
+  <button class="smallbtn" id="installBtn" style="display:none">📲 Install Nova as an app</button>
+  <button class="smallbtn" id="switchBrain">Switch brain</button>
+  <button class="smallbtn" id="clearBrain">Delete downloaded brains (free up space)</button>
+  <div class="row"><button id="closeSet">Cancel</button><button class="primary" id="saveSet">Save</button></div>
+  <p class="note">Everything stays on this phone. Nothing you type is sent to any AI service.</p>
+</div></div>
+
+<script type="module">
+let webllm=null;
+const PERSONAS={
+ jarvis:{label:"Jarvis",desc:"Calm, witty, polished butler",prompt:"You are a calm, highly capable AI assistant in the style of a refined, witty British butler. Be efficient, polite, lightly dry-humored. Occasionally address the user as 'sir' or 'ma'am' only if you don't know their name; otherwise use their name sparingly."},
+ buddy:{label:"Buddy",desc:"Chill, friendly, casual",prompt:"You are a laid-back, friendly AI buddy. Talk casually like a supportive friend, keep it upbeat and real."},
+ coach:{label:"Coach",desc:"Motivating, action-focused",prompt:"You are an energetic, motivating coach-style AI. Push the user toward action, give clear steps, celebrate progress."},
+ sensei:{label:"Sensei",desc:"Patient teacher, explains well",prompt:"You are a patient teacher. Explain things simply with examples, check understanding, and encourage learning. Great at teaching beginners to code."}
+};
+const MODELS=[
+ {id:"Qwen2.5-0.5B-Instruct-q4f16_1-MLC",name:"Lite",desc:"Fastest · ~300 MB download · basic smarts"},
+ {id:"Llama-3.2-1B-Instruct-q4f16_1-MLC",name:"Standard",desc:"Balanced · ~700 MB download · good for most phones"},
+ {id:"Qwen2.5-1.5B-Instruct-q4f16_1-MLC",name:"Smart",desc:"Smartest · ~1 GB download · needs a newer phone"}
+];
+const CHIPS=["Plan my day","Explain something simply","Help me write a message","Give me a fun fact","Teach me some code","Brainstorm ideas"];
+
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let settings=store.get("nova_settings",{aiName:"Nova",userName:"",persona:"jarvis",extra:""});
+let history=store.get("nova_history",[]);
+let live=false,liveMuted=false,engine=null,busy=false,stopFlag=false,modelPick=store.get("nova_model",MODELS[1].id);
+
+function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+function fmt(s){return esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/^📝 Saved note: (.+)$/gm,(m,t)=>`<span class="notechip" data-t="${t.replace(/"/g,"&quot;")}">📝 ${t}</span>`)}
+
+function applySettings(){
+  $("logo").textContent=(settings.aiName||"NOVA").toUpperCase();
+  $("input").placeholder=`Talk to ${settings.aiName||"Nova"}…`;
+  const h=new Date().getHours(),part=h<12?"Good morning":h<18?"Good afternoon":"Good evening";
+  $("greet").textContent=`${part}${settings.userName?", "+settings.userName:""}. How can I help?`;
+}
+function addBubble(role,text){
+  const d=document.createElement("div");d.className="msg "+role;d.innerHTML=fmt(text);d.dataset.raw=text;
+  if(role==="ai")d.appendChild(makeActs(d));
+  $("chat").appendChild(d);scrollDown();return d;
+}
+function makeActs(d){
+  const a=document.createElement("div");a.className="acts";
+  const c=document.createElement("button");c.className="copy";c.textContent="Copy";
+  c.onclick=()=>{navigator.clipboard?.writeText(d.dataset.raw).then(()=>{c.textContent="Copied ✓";setTimeout(()=>c.textContent="Copy",1500)}).catch(()=>{})};
+  const s=document.createElement("button");s.className="copy";s.textContent="Save as note";
+  s.onclick=()=>{const raw=(d.dataset.raw||"").replace(/\n?📝 Saved note:.*$/gm,"").trim();if(!raw||raw==="…")return;
+    const first=raw.split("\n")[0].replace(/\*\*/g,"").trim();addNote(first.length>40?first.slice(0,40)+"…":first,raw);s.textContent="Saved ✓";setTimeout(()=>s.textContent="Save as note",1500)};
+  const r=document.createElement("button");r.className="copy";r.textContent="Read aloud";
+  r.onclick=()=>{if(!TTS)return;stopSpeak();speakText(d.dataset.raw||"")};
+  a.append(c,s,r);return a;
+}
+function setBubble(d,text){d.dataset.raw=text;const a=d.querySelector(".acts");d.innerHTML=fmt(text);if(a)d.appendChild(a)}
+
+// ---------- notes ----------
+let notes=store.get("nova_notes",[]),editing=null;
+function saveNotes(){store.set("nova_notes",notes);$("noteCount").textContent=notes.length||""}
+function addNote(title,body){const n={id:Date.now()+Math.random().toString(36).slice(2,6),title:(title||"Untitled").trim(),body:(body||"").trim(),ts:Date.now()};notes.unshift(n);saveNotes();return n}
+function visible(t){const i=t.indexOf("<note");return (i>=0?t.slice(0,i):t).trimEnd()}
+function finishReply(bubble,raw){
+  const saved=[];
+  raw.replace(/<note\s+title\s*=\s*["“]([^"”]*)["”]\s*>([\s\S]*?)(<\/note>|$)/g,(m,ti,bo)=>{if(bo.trim())saved.push(addNote(ti,bo));return""});
+  let clean=raw.replace(/<note[\s\S]*?(<\/note>|$)/g,"").trim();
+  if(saved.length)clean=(clean?clean+"\n\n":"")+saved.map(n=>"📝 Saved note: "+n.title).join("\n");
+  setBubble(bubble,clean||"Done.");return clean||"Done.";
+}
+function notesPrompt(){
+  let p=` NOTES: You can save notes for the user. When they ask you to make, save, take, add, jot down or write down a note, list or reminder, put the full note at the very end of your reply in exactly this format: <note title="Short title">full note text</note> — then briefly tell them it's saved. Only use that tag when they want something saved.`;
+  if(notes.length){let ctx="";for(const n of notes){const line=`\n- "${n.title}": ${n.body.replace(/\s+/g," ").slice(0,300)}`;if(ctx.length+line.length>2500)break;ctx+=line}
+    p+=` The user's saved notes (newest first; use these if they ask about their notes):${ctx}`}
+  return p;
+}
+function drawNotes(){
+  const q=$("nsearch").value.toLowerCase().trim();
+  const list=notes.filter(n=>!q||(n.title+" "+n.body).toLowerCase().includes(q));
+  $("nItems").innerHTML=list.length?"":`<div class="nempty">${notes.length?"No matches.":"No notes yet.<br>Try asking: “Make a note to call the bakery on Monday.”"}</div>`;
+  list.forEach(n=>{const c=document.createElement("div");c.className="ncard";
+    c.innerHTML=`<b>${esc(n.title)}</b><p>${esc(n.body)}</p><small>${new Date(n.ts).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</small>`;
+    c.onclick=()=>openEditor(n);$("nItems").appendChild(c)});
+}
+function openNotes(){$("nList").style.display="";$("nEdit").style.display="none";drawNotes();$("notes").classList.add("open")}
+function openEditor(n){editing=n;$("neTitle").value=n?n.title:"";$("neBody").value=n?n.body:"";$("neDel").style.display=n?"":"none";$("nList").style.display="none";$("nEdit").style.display=""}
+function openNoteByTitle(t){const n=notes.find(x=>x.title===t);openNotes();if(n)openEditor(n)}
+$("notesBtn").onclick=openNotes;
+$("nClose").onclick=()=>$("notes").classList.remove("open");
+$("notes").onclick=e=>{if(e.target.id==="notes")$("notes").classList.remove("open")};
+$("nNew").onclick=()=>openEditor(null);
+$("nsearch").oninput=drawNotes;
+$("neBack").onclick=()=>{$("nList").style.display="";$("nEdit").style.display="none";drawNotes()};
+$("neSave").onclick=()=>{const t=$("neTitle").value.trim()||"Untitled",b=$("neBody").value;
+  if(editing){editing.title=t;editing.body=b;editing.ts=Date.now();notes=[editing,...notes.filter(x=>x!==editing)];saveNotes()}else{if(!b.trim()&&t==="Untitled")return;addNote(t,b)}
+  $("neBack").onclick()};
+$("neDel").onclick=()=>{if(!editing)return;if($("neDel").dataset.sure!=="1"){$("neDel").dataset.sure="1";$("neDel").textContent="Tap again to delete";setTimeout(()=>{$("neDel").dataset.sure="";$("neDel").textContent="Delete note"},2500);return}
+  notes=notes.filter(x=>x!==editing);saveNotes();$("neDel").dataset.sure="";$("neDel").textContent="Delete note";$("neBack").onclick()};
+$("neCopy").onclick=()=>{navigator.clipboard?.writeText($("neTitle").value+"\n\n"+$("neBody").value).then(()=>{$("neCopy").textContent="Copied ✓";setTimeout(()=>$("neCopy").textContent="Copy",1500)}).catch(()=>{})};
+$("chat").addEventListener("click",e=>{const c=e.target.closest(".notechip");if(c)openNoteByTitle(c.dataset.t.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">"))});
+function scrollDown(){const c=$("chat");c.scrollTop=c.scrollHeight}
+function render(){
+  $("chat").innerHTML="";history.forEach(m=>addBubble(m.role==="user"?"user":"ai",m.content));
+  $("hero").classList.toggle("small",history.length>0);
+  $("chips").style.display=history.length?"none":"flex";
+}
+function setRing(c){["orb","liveOrb"].forEach(id=>{const e=$(id);if(e)e.className="orb"+(c?" "+c:"")})}
+function orb(state){if(!state&&speaking)state="talking";setRing(state);if(typeof liveUI==="function")liveUI();
+  const s=$("status");s.textContent=state==="thinking"?"THINKING":state==="talking"?"SPEAKING":"ONLINE";s.classList.toggle("on",!!state)}
+
+function systemPrompt(){
+  const p=PERSONAS[settings.persona]||PERSONAS.jarvis;
+  const now=new Date().toLocaleString([], {weekday:"long",month:"long",day:"numeric",hour:"numeric",minute:"2-digit"});
+  return `Your name is ${settings.aiName||"Nova"}. ${p.prompt}${settings.userName?` The user's name is ${settings.userName}.`:""} ${settings.extra?"User's extra instructions: "+settings.extra+".":""} Current local time: ${now}. You run fully offline on the user's phone. Keep replies short and easy to read on a small screen. If you are unsure of a fact, say so instead of guessing.${notesPrompt()}`;
+}
+
+async function send(text){
+  text=(text||$("input").value).trim();if(!text||busy)return;
+  if(!engine)return;
+  $("input").value="";autoGrow();
+  history.push({role:"user",content:text});addBubble("user",text);
+  $("hero").classList.add("small");$("chips").style.display="none";
+  stopRec();stopSpeak();if(live){$("liveNova").textContent=""}busy=true;stopFlag=false;$("send").textContent="■";orb("thinking");
+  const bubble=addBubble("ai","…");
+  const msgs=[{role:"system",content:systemPrompt()},...history.slice(-12).map(m=>({role:m.role,content:m.content}))];
+  let out="";
+  try{
+    const stream=await engine.chat.completions.create({messages:msgs,stream:true,temperature:0.7,max_tokens:600});
+    for await(const chunk of stream){
+      if(stopFlag){engine.interruptGenerate();break}
+      out+=chunk.choices[0]?.delta?.content||"";orb("talking");setBubble(bubble,visible(out)||"…");speakStream(visible(out));liveCap(visible(out));scrollDown();
+    }
+    out=finishReply(bubble,out.trim()||"(no reply)");speakStream(out,true);liveCap(out);history.push({role:"assistant",content:out});
+  }catch(e){
+    history.pop();setBubble(bubble,"Something went wrong: "+(e.message||e));bubble.classList.add("err");
+    try{await engine.resetChat()}catch(_){}
+  }finally{store.set("nova_history",history);busy=false;$("send").textContent="➤";orb("");afterTurn()}
+}
+
+// ---------- brain setup ----------
+function drawModels(){$("models").innerHTML="";MODELS.forEach(m=>{const b=document.createElement("button");b.className=m.id===modelPick?"sel":"";b.innerHTML=`<b>${m.name}</b><small>${m.desc}</small>`;b.onclick=()=>{modelPick=m.id;drawModels()};$("models").appendChild(b)})}
+function showSetup(msg){$("setup").classList.remove("hide");$("startBtn").disabled=false;$("models").style.display="flex";$("barFill").style.width="0";$("prog").textContent="";if(msg){$("setupMsg").textContent=msg}drawModels()}
+async function loadBrain(id){
+  $("startBtn").disabled=true;$("models").style.display="none";$("setupOrb").classList.add("thinking");
+  $("prog").classList.remove("warn");$("prog").textContent="Starting…";
+  try{
+    if(engine){await engine.unload();engine=null}
+    engine=await webllm.CreateMLCEngine(id,{initProgressCallback:r=>{
+      $("barFill").style.width=Math.round((r.progress||0)*100)+"%";
+      $("prog").textContent=r.text.replace(/\[.*?\]\s*/,"").slice(0,140);
+    }});
+    store.set("nova_model",id);modelPick=id;
+    $("setup").classList.add("hide");$("setupOrb").classList.remove("thinking");setTimeout(resumeIdle,300);
+    $("status").textContent="ONLINE";$("send").disabled=false;
+    $("brainNote").textContent="Using: "+(MODELS.find(m=>m.id===id)?.name||id);
+  }catch(e){
+    engine=null;$("setupOrb").classList.remove("thinking");
+    $("prog").classList.add("warn");
+    $("prog").textContent="Couldn't load: "+(e.message||e)+" — try the Lite brain, close other apps, and make sure you have free storage.";
+    $("startBtn").disabled=false;$("models").style.display="flex";
+  }
+}
+$("startBtn").onclick=()=>loadBrain(modelPick);
+$("switchBrain").onclick=()=>{$("panel").classList.remove("open");showSetup("Pick a different brain. Ones you've already downloaded load fast.")};
+$("clearBrain").onclick=async()=>{
+  try{for(const m of MODELS){await webllm.deleteModelAllInfoInCache(m.id)}}catch(e){}
+  $("clearBrain").textContent="Deleted ✓";setTimeout(()=>$("clearBrain").textContent="Delete downloaded brains (free up space)",2000);
+};
+
+function autoGrow(){const t=$("input");t.style.height="auto";t.style.height=Math.min(t.scrollHeight,120)+"px"}
+$("input").addEventListener("input",autoGrow);
+$("input").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&window.innerWidth>700){e.preventDefault();send()}});
+$("send").onclick=()=>{if(busy){stopFlag=true}else send()};
+$("newBtn").onclick=()=>{if(busy)stopFlag=true;stopSpeak();history=[];store.set("nova_history",history);render()};
+
+CHIPS.forEach(c=>{const b=document.createElement("button");b.className="chip";b.textContent=c;b.onclick=()=>send(c);$("chips").appendChild(b)});
+
+let pick=settings.persona;
+function openSet(){$("aiName").value=settings.aiName;$("userName").value=settings.userName;$("extra").value=settings.extra;pick=settings.persona;drawPersonas();if(TTS)loadVoices();$("vRate").value=settings.rate||1;$("vPitch").value=settings.pitch||1;$("vRate").oninput();$("vPitch").oninput();$("hfConvo").checked=!!settings.convo;$("hfWake").checked=!!settings.wake;$("wakeLbl").textContent=settings.aiName||"Nova";$("panel").classList.add("open")}
+function drawPersonas(){$("personas").innerHTML="";Object.entries(PERSONAS).forEach(([k,p])=>{const b=document.createElement("button");b.className=k===pick?"sel":"";b.innerHTML=`${p.label}<small>${p.desc}</small>`;b.onclick=()=>{pick=k;drawPersonas()};$("personas").appendChild(b)})}
+$("setBtn").onclick=openSet;
+$("closeSet").onclick=()=>$("panel").classList.remove("open");
+$("panel").onclick=e=>{if(e.target.id==="panel")$("panel").classList.remove("open")};
+$("saveSet").onclick=()=>{settings={...settings,aiName:$("aiName").value.trim()||"Nova",userName:$("userName").value.trim(),persona:pick,extra:$("extra").value.trim(),voiceName:$("voiceSel").value,rate:+$("vRate").value,pitch:+$("vPitch").value,convo:$("hfConvo").checked,wake:$("hfWake").checked};if(!settings.wake&&micMode==="wake")stopRec();if(!settings.convo)convo=false;setTimeout(resumeIdle,200);store.set("nova_settings",settings);applySettings();$("panel").classList.remove("open")};
+
+
+
+// ---------- energy-ring animation ----------
+(function(){
+  const RIBBONS=[{h:[172,190],o:0,a:1},{h:[200,220],o:1.4,a:.9},{h:[222,240],o:2.8,a:.8},{h:[278,300],o:4.2,a:.55}];
+  const LINES=14,PTS=110,TAU=Math.PI*2;
+  let t=0,spd=1,amp=1,boost=0,last=performance.now();
+  function target(c){return c.classList.contains("talking")?{s:1.8,a:1.35}:c.classList.contains("listening")?{s:1.5,a:1.15}:c.classList.contains("thinking")?{s:3,a:.85}:{s:1,a:1}}
+  function draw(c,now){
+    const dpr=Math.min(window.devicePixelRatio||1,2),w=c.clientWidth,h=c.clientHeight;
+    if(!w)return;
+    if(c.width!==Math.round(w*dpr)){c.width=Math.round(w*dpr);c.height=Math.round(h*dpr)}
+    const g=c.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
+    const cx=w/2,cy=h/2,R=w*.33,small=w<100;
+    const tg=target(c);
+    const glow=g.createRadialGradient(cx,cy,R*.2,cx,cy,R*1.5);
+    glow.addColorStop(0,"rgba(30,80,255,.10)");glow.addColorStop(.6,"rgba(0,180,255,.07)");glow.addColorStop(1,"rgba(0,0,0,0)");
+    g.fillStyle=glow;g.fillRect(0,0,w,h);
+    g.globalCompositeOperation="lighter";g.lineWidth=small?.5:.7;
+    const talkPulse=tg.s===1.8?Math.sin(now/90)*.5+Math.sin(now/53)*.5:0;
+    RIBBONS.forEach((rb,ri)=>{
+      for(let j=0;j<LINES;j++){
+        const f=j/LINES,hue=rb.h[0]+(rb.h[1]-rb.h[0])*f;
+        g.strokeStyle=`hsla(${hue},100%,${60+f*12}%,${(small?.32:.3)*rb.a})`;
+        g.beginPath();
+        for(let k=0;k<=PTS;k++){
+          const a=k/PTS*TAU;
+          const ph=t*(.6+ri*.15)+rb.o+f*.9;
+          const wob=Math.sin(3*a+ph)*.10+Math.sin(5*a-ph*1.3+f*1.6)*.06+Math.sin(2*a+ph*.7+ri)*.08;
+          const r=R*(1+(wob+talkPulse*.05*Math.sin(4*a+j))*amp*(1+boost))+(f-.5)*R*.26;
+          const x=cx+Math.cos(a+t*.08*(ri%2?1:-1))*r,y=cy+Math.sin(a+t*.08*(ri%2?1:-1))*r*.97;
+          k?g.lineTo(x,y):g.moveTo(x,y);
+        }
+        g.stroke();
+      }
+    });
+    g.globalCompositeOperation="source-over";
+  }
+  function loop(now){
+    const dt=Math.min((now-last)/1000,.05);last=now;
+    const cs=[...document.querySelectorAll("canvas.orb")];
+    const vis=cs.find(c=>c.offsetParent!==null&&!c.closest(".hide"))||cs[0];
+    if(vis){const tg=target(vis);spd+=(tg.s-spd)*.05;amp+=(tg.a-amp)*.05}
+    t+=dt*spd;
+    cs.forEach(c=>{if(c.offsetParent!==null)draw(c,now)});
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // animated space background
+  const bg=document.createElement("canvas");bg.id="circuit";document.body.prepend(bg);
+  const neb=document.createElement("canvas");
+  let stars=[],shoot=null,bw=0,bh=0,bdpr=1;
+  function space(){
+    bdpr=Math.min(window.devicePixelRatio||1,2);bw=innerWidth;bh=innerHeight;
+    bg.width=bw*bdpr;bg.height=bh*bdpr;neb.width=bg.width;neb.height=bg.height;
+    const n=neb.getContext("2d");n.setTransform(bdpr,0,0,bdpr,0,0);
+    [[.2,.25,"rgba(60,40,200,.22)",.55],[.85,.6,"rgba(20,90,255,.18)",.6],[.4,.9,"rgba(130,40,220,.14)",.5],[.7,.12,"rgba(0,160,255,.10)",.4]].forEach(([x,y,c,r])=>{
+      const g=n.createRadialGradient(bw*x,bh*y,0,bw*x,bh*y,Math.max(bw,bh)*r);g.addColorStop(0,c);g.addColorStop(1,"rgba(0,0,0,0)");n.fillStyle=g;n.fillRect(0,0,bw,bh)});
+    stars=[];const N=Math.round(bw*bh/2200);
+    for(let i=0;i<N;i++){const big=Math.random()<.08;stars.push({x:Math.random()*bw,y:Math.random()*bh,r:big?1+Math.random()*.9:.3+Math.random()*.7,
+      tw:.5+Math.random()*2.5,ph:Math.random()*TAU,hue:Math.random()<.25?210+Math.random()*60:0,dx:(Math.random()*.6+.2)*(big?1.6:1)})}
+  }
+  function sky(now){
+    const g=bg.getContext("2d");g.setTransform(bdpr,0,0,bdpr,0,0);g.clearRect(0,0,bw,bh);g.drawImage(neb,0,0,bw,bh);
+    const s=now/1000;
+    for(const st of stars){
+      st.x-=st.dx*.05;if(st.x<-2)st.x=bw+2;
+      const a=.35+.65*Math.abs(Math.sin(s*st.tw+st.ph));
+      g.fillStyle=st.hue?`hsla(${st.hue},90%,80%,${a})`:`rgba(255,255,255,${a})`;
+      g.beginPath();g.arc(st.x,st.y,st.r,0,TAU);g.fill();
+      if(st.r>1.3&&a>.85){g.fillStyle=`rgba(150,190,255,${(a-.85)*1.2})`;g.fillRect(st.x-st.r*3,st.y-.4,st.r*6,.8);g.fillRect(st.x-.4,st.y-st.r*3,.8,st.r*6)}
+    }
+    if(!shoot&&Math.random()<.003)shoot={x:Math.random()*bw*.8+bw*.2,y:Math.random()*bh*.4,vx:-(5+Math.random()*4),vy:2+Math.random()*2,life:1};
+    if(shoot){const L=14;const gr=g.createLinearGradient(shoot.x,shoot.y,shoot.x-shoot.vx*L,shoot.y-shoot.vy*L);
+      gr.addColorStop(0,`rgba(220,235,255,${shoot.life})`);gr.addColorStop(1,"rgba(120,160,255,0)");g.strokeStyle=gr;g.lineWidth=1.5;
+      g.beginPath();g.moveTo(shoot.x,shoot.y);g.lineTo(shoot.x-shoot.vx*L,shoot.y-shoot.vy*L);g.stroke();
+      shoot.x+=shoot.vx;shoot.y+=shoot.vy;shoot.life-=.012;if(shoot.life<=0||shoot.x<-100||shoot.y>bh+100)shoot=null}
+    requestAnimationFrame(sky);
+  }
+  space();addEventListener("resize",space);requestAnimationFrame(sky);
+})();
+
+// ---------- voice output ----------
+const TTS=window.speechSynthesis||null;
+let speaking=false,pending=0,spoken=0,voices=[];
+function sayable(t){return t.replace(/📝 Saved note:.*$/gm,"").replace(/[*_`#>]/g,"").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu,"").replace(/\s+/g," ").trim()}
+function loadVoices(){
+  if(!TTS)return;voices=TTS.getVoices()||[];
+  const en=voices.filter(v=>/^en/i.test(v.lang)),list=en.length?en:voices,sel=$("voiceSel");
+  sel.innerHTML='<option value="">Default voice</option>'+list.map(v=>`<option value="${esc(v.name)}">${esc(v.name)} (${esc(v.lang)})</option>`).join("");
+  sel.value=settings.voiceName||"";
+}
+function pickVoice(name){return voices.find(v=>v.name===name)||voices.find(v=>/en[-_]US/i.test(v.lang))||voices.find(v=>/^en/i.test(v.lang))}
+function pieces(text){const out=[];let t=text;while(t.length>180){let cut=t.lastIndexOf(", ",180);if(cut<60)cut=t.lastIndexOf(" ",180);if(cut<1)cut=180;out.push(t.slice(0,cut+1));t=t.slice(cut+1)}if(t.trim())out.push(t);return out}
+function speakText(text,opts){
+  if(!TTS)return;const o=opts||{};
+  pieces(sayable(text)).forEach(p=>{
+    const u=new SpeechSynthesisUtterance(p),v=pickVoice(o.voiceName??settings.voiceName);
+    if(v){u.voice=v;u.lang=v.lang}u.rate=o.rate??settings.rate??1;u.pitch=o.pitch??settings.pitch??1;
+    pending++;u.onstart=()=>{speaking=true;orb("talking")};
+    u.onend=u.onerror=()=>{pending=Math.max(0,pending-1);if(!pending){speaking=false;if(!busy)orb("");afterTurn()}};
+    TTS.speak(u);
+  });
+}
+function speakStream(text,final){
+  if(!(settings.voice||live)||!TTS)return;
+  let end;if(final)end=text.length;else{const re=/[.!?:\n](?=\s)/g;let m,last=-1;while((m=re.exec(text)))last=m.index+1;end=last}
+  if(end>spoken){speakText(text.slice(spoken,end));spoken=end}
+}
+function stopSpeak(){if(TTS)TTS.cancel();pending=0;speaking=false;spoken=0;if(typeof liveUI==="function")liveUI()}
+function drawVoiceBtn(){$("voiceBtn").classList.toggle("on",!!settings.voice);$("voiceBtn").textContent=settings.voice?"🔊":"🔇"}
+$("voiceBtn").onclick=()=>{
+  if(!TTS){addBubble("ai","Sorry — this browser doesn't support speaking out loud.").classList.add("err");return}
+  if(speaking){stopSpeak();orb(busy?"thinking":"");return}
+  settings.voice=!settings.voice;store.set("nova_settings",settings);drawVoiceBtn();
+  if(settings.voice)speakText("Voice on.");
+};
+$("vRate").oninput=()=>$("vRateLbl").textContent=$("vRate").value+"×";
+$("vPitch").oninput=()=>$("vPitchLbl").textContent=$("vPitch").value;
+$("vTest").onclick=()=>{stopSpeak();speakText(`Hi${$("userName").value.trim()?", "+$("userName").value.trim():""}, I'm ${$("aiName").value.trim()||"Nova"}. How does this sound?`,{voiceName:$("voiceSel").value,rate:+$("vRate").value,pitch:+$("vPitch").value})};
+if(TTS){loadVoices();TTS.onvoiceschanged=loadVoices}else{$("voiceSel").innerHTML="<option>Not supported in this browser</option>";$("vTest").disabled=true}
+
+// ---------- voice input + hands-free (offline version) ----------
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null,micMode="off",convo=false,emptyTries=0,quickEnds=0,restartT=null;
+const STOP_RE=/^(stop|stop listening|goodbye|good bye|bye|that's all|that is all|never mind|nevermind|cancel|we're done|i'm done)[.!]?$/i;
+if(!SR){$("mic").style.display="none";$("hfBox").innerHTML='<p class="note" style="margin-top:0">Voice typing isn\'t supported in this browser. Use the latest Chrome on Android.</p>'}
+function wakeName(){return (settings.aiName||"Nova").toLowerCase().replace(/[^a-z0-9 ]/g,"").trim()||"nova"}
+function micUI(){
+  const m=$("mic");m.classList.toggle("live",micMode==="command");m.classList.toggle("wake",micMode==="wake");
+  m.textContent=micMode==="wake"?"👂":"🎤";
+  $("input").placeholder=micMode==="command"?(convo?"Listening… (say “stop” to end)":"Listening…"):micMode==="wake"?`Say “Hey ${settings.aiName||"Nova"}”…`:`Talk to ${settings.aiName||"Nova"}…`;
+  if(!busy&&!speaking&&!pending)setRing(micMode==="command"?"listening":"");
+  liveUI();
+  if(!busy&&!speaking&&engine){$("status").textContent=micMode==="off"?"ONLINE":"LISTENING";$("status").classList.toggle("on",micMode!=="off")}
+}
+function stopRec(){clearTimeout(restartT);micMode="off";if(rec){const r=rec;rec=null;try{r.abort()}catch(e){}}micUI()}
+function newRec(continuous){const r=new SR();r.lang=navigator.language||"en-US";r.interimResults=true;r.continuous=continuous;r.maxAlternatives=1;return r}
+function micError(e){
+  if(e.error==="not-allowed"||e.error==="service-not-allowed"){convo=false;if(settings.wake){settings.wake=false;store.set("nova_settings",settings)}
+    addBubble("ai","I need microphone permission. Allow the mic for this site in Chrome's settings, then try again.").classList.add("err")}
+  else if(e.error==="network"){convo=false;addBubble("ai","Voice typing needs an internet connection. You can still type.").classList.add("err")}
+}
+function listenCommand(){
+  if(!SR||!engine||busy)return;stopRec();stopSpeak();
+  micMode="command";const r=newRec(false);rec=r;let finalText="";if(live)$("liveYou").textContent="";micUI();
+  r.onresult=e=>{let interim="";finalText="";for(const x of e.results){if(x.isFinal)finalText+=x[0].transcript;else interim+=x[0].transcript}$("input").value=(finalText+interim).trim();autoGrow();if(live)$("liveYou").textContent=$("input").value};
+  r.onerror=micError;
+  r.onend=()=>{
+    if(rec!==r)return;rec=null;micMode="off";
+    const nm=wakeName().replace(/\s+/g,"\\s*");
+    let t=$("input").value.trim().replace(new RegExp("^(?:hey|hi|ok|okay|yo)?\\s*"+nm+"\\b[,.!?]?\\s*","i"),"").trim();$("input").value=t;
+    if(!t&&finalText.trim()&&convo){listenCommand();return}
+    if(finalText.trim()&&t){
+      emptyTries=0;
+      if(convo&&STOP_RE.test(t)){if(live){exitLive();if(TTS)speakText("Okay, talk soon.");return}convo=false;$("input").value="";micUI();if(settings.voice)speakText("Okay.");else resumeIdle();return}
+      micUI();send(t);
+    }else if(convo&&++emptyTries<3){listenCommand()}
+    else if(live){emptyTries=0;micUI()}
+    else{convo=false;emptyTries=0;resumeIdle()}
+  };
+  try{r.start()}catch(e){rec=null;micMode="off";micUI()}
+}
+function listenWake(){
+  if(!SR||!settings.wake||!engine||busy||pending||micMode!=="off"||document.hidden)return;
+  micMode="wake";const r=newRec(true);rec=r;const started=Date.now();micUI();
+  const name=wakeName(),re=new RegExp("\\b(?:hey|hi|ok|okay|yo)?\\s*"+name.replace(/\s+/g,"\\s*")+"\\b[,.!?]?\\s*","i");
+  r.onresult=e=>{
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const said=e.results[i][0].transcript,m=said.match(re);if(!m)continue;
+      const after=said.slice(m.index+m[0].length).trim();
+      if(after.length<3){stopRec();convo=!!settings.convo;emptyTries=0;listenCommand();return}
+      if(e.results[i].isFinal){stopRec();convo=!!settings.convo;emptyTries=0;$("input").value=after;send(after);return}
+    }
+  };
+  r.onerror=e=>{if(e.error==="not-allowed"||e.error==="service-not-allowed"||e.error==="network")micError(e)};
+  r.onend=()=>{
+    if(rec!==r)return;rec=null;micMode="off";micUI();
+    quickEnds=Date.now()-started<1500?quickEnds+1:0;
+    restartT=setTimeout(listenWake,quickEnds>3?4000:250);
+  };
+  try{r.start()}catch(e){rec=null;micMode="off";micUI()}
+}
+function resumeIdle(){micUI();if(live)return;if(settings.wake)listenWake()}
+function afterTurn(){if(busy||pending)return;if(live&&liveMuted){micUI();return}if(convo)setTimeout(()=>{if(convo&&!busy&&!pending&&!(live&&liveMuted))listenCommand()},350);else resumeIdle()}
+$("mic").onclick=()=>{
+  if(micMode==="command"){convo=false;stopRec();resumeIdle();return}
+  convo=!!settings.convo;emptyTries=0;listenCommand();
+};
+document.addEventListener("visibilitychange",()=>{if(document.hidden){if(live){stopRec();stopSpeak();emptyTries=0}else{convo=false;stopRec()}}else resumeIdle()});
+$("hfConvo").checked=!!settings.convo;$("hfWake").checked=!!settings.wake;
+
+// ---------- live mode ----------
+function liveUI(){
+  if(!live)return;
+  $("liveState").textContent=(speaking||pending)?"SPEAKING · TAP TO INTERRUPT":busy?"THINKING…":micMode==="command"?"LISTENING…":liveMuted?"MIC OFF":"TAP THE RING TO TALK";
+  $("liveMute").classList.toggle("off",liveMuted);$("liveMute").textContent=liveMuted?"🔇":"🎤";
+}
+function liveCap(t){if(!live)return;const c=sayable(t);$("liveNova").textContent=c.length>170?"…"+c.slice(-170):c}
+function enterLive(){
+  if(!engine)return;
+  if(!SR){addBubble("ai","Live mode needs voice typing, which this browser doesn't support. Use the latest Chrome on Android.").classList.add("err");return}
+  stopRec();stopSpeak();live=true;liveMuted=false;convo=true;emptyTries=0;
+  document.body.classList.add("live");$("live").classList.remove("hide");
+  $("liveYou").textContent="";$("liveNova").textContent="";
+  if(TTS){speakText(`I'm listening${settings.userName?", "+settings.userName:""}.`)}else listenCommand();
+  liveUI();
+}
+function exitLive(){
+  live=false;convo=false;stopRec();stopSpeak();
+  document.body.classList.remove("live");$("live").classList.add("hide");
+  orb(busy?"thinking":"");resumeIdle();scrollDown();
+}
+$("liveBtn").onclick=enterLive;
+$("liveEnd").onclick=exitLive;
+$("liveOrb").onclick=()=>{
+  if(busy)return;
+  if(speaking||pending){stopSpeak();orb("");liveMuted=false;emptyTries=0;listenCommand();return}
+  if(micMode!=="command"){liveMuted=false;emptyTries=0;listenCommand()}
+};
+$("liveMute").onclick=()=>{liveMuted=!liveMuted;if(liveMuted){stopRec()}else if(!busy&&!speaking&&!pending){emptyTries=0;listenCommand()}liveUI()};
+
+// ---------- installable app ----------
+if("serviceWorker" in navigator&&location.protocol.startsWith("http")){navigator.serviceWorker.register("sw.js").catch(()=>{})}
+let installEvt=null;
+addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;$("installBtn").style.display=""});
+$("installBtn").onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;$("installBtn").style.display="none"};
+addEventListener("appinstalled",()=>{$("installBtn").style.display="none"});
+drawVoiceBtn();saveNotes();applySettings();render();$("send").disabled=true;$("status").textContent="OFFLINE";
+drawModels();
+if(!navigator.gpu){
+  $("startBtn").disabled=true;
+  $("prog").classList.add("warn");
+  $("prog").textContent="This browser can't run an on-device AI (no WebGPU). Open this page in the latest Chrome on Android.";
+}else{
+  (async()=>{
+    $("startBtn").disabled=true;$("prog").textContent="Loading AI engine…";
+    try{webllm=await import("https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2/+esm")}
+    catch(e){$("prog").classList.add("warn");$("prog").textContent="Couldn't load the AI engine. Connect to the internet for the first launch, then reload.";return}
+    $("startBtn").disabled=false;$("prog").textContent="";
+    let cached=false;try{cached=await webllm.hasModelInCache(modelPick)}catch(e){}
+    if(cached)loadBrain(modelPick);
+  })();
+}
+</script>
+</body>
+</html>
