@@ -313,7 +313,10 @@ function setRing(c){["orb","liveOrb"].forEach(id=>{const e=$(id);if(e)e.classNam
 function orb(state){if(!state&&speaking)state="talking";setRing(state);if(typeof liveUI==="function")liveUI();
   const s=$("status");s.textContent=state==="thinking"?"THINKING":state==="talking"?"SPEAKING":"ONLINE";s.classList.toggle("on",!!state)}
 
+function isSmall(){return /SmolLM2|0\.5B/.test(loadedId||modelPick)}
+function shortPrompt(){return `You are ${settings.aiName||"Nova"}, a friendly, helpful assistant${settings.userName?" talking with "+settings.userName:""}. Reply in a few clear sentences.`}
 function systemPrompt(){
+  if(isSmall()){const p=PERSONAS[settings.persona]||PERSONAS.jarvis;return shortPrompt()+" "+p.prompt.split(".")[0]+"."+(settings.extra?" "+settings.extra:"")+` To save a note, end your reply with <note title="Title">note text</note>.`}
   const p=PERSONAS[settings.persona]||PERSONAS.jarvis;
   const now=new Date().toLocaleString([], {weekday:"long",month:"long",day:"numeric",hour:"numeric",minute:"2-digit"});
   return `Your name is ${settings.aiName||"Nova"}. ${p.prompt}${settings.userName?` The user's name is ${settings.userName}.`:""} ${settings.extra?"User's extra instructions: "+settings.extra+".":""} Current local time: ${now}. You run fully offline on the user's phone. Keep replies short and easy to read on a small screen. If you are unsure of a fact, say so instead of guessing.${notesPrompt()}`;
@@ -331,13 +334,28 @@ async function send(text){
   while(recent.length&&recent[0].role!=="user")recent.shift();
   const msgs=[{role:"system",content:systemPrompt()},...recent];
   let out="";
-  try{
-    const stream=await engine.chat.completions.create({messages:msgs,stream:true,temperature:0.7,max_tokens:600});
+  const gen=async(m,opts)=>{let o="";
+    const stream=await engine.chat.completions.create({messages:m,stream:true,temperature:0.7,max_tokens:500,...(opts||{})});
     for await(const chunk of stream){
       if(stopFlag){engine.interruptGenerate();break}
-      out+=chunk.choices[0]?.delta?.content||"";orb("talking");setBubble(bubble,visible(out)||"…");speakStream(visible(out));liveCap(visible(out));scrollDown();
+      o+=chunk.choices[0]?.delta?.content||"";if(o.trim()){orb("talking");setBubble(bubble,visible(o)||"…");speakStream(visible(o));liveCap(visible(o));scrollDown()}
+    }return o};
+  try{
+    out=await gen(msgs);
+    if(!out.trim()&&!stopFlag){
+      // retry 1: short and simple instructions
+      setBubble(bubble,"… (thinking harder)");
+      out=await gen([{role:"system",content:shortPrompt()},{role:"user",content:text}],{temperature:0.8});
     }
-    out=finishReply(bubble,out.trim()||"(no reply)");speakStream(out,true);liveCap(out);history.push({role:"assistant",content:out});
+    if(!out.trim()&&!stopFlag&&!store.get("nova_f32",false)&&f16){
+      // retry 2: this phone's graphics chip may not handle the compact brain — switch to the compatible version
+      store.set("nova_f32",true);f16=false;
+      setBubble(bubble,"… switching to a version of the brain that suits your phone (one-time download)");
+      showSetup("Switching Nova's brain to a version that suits your phone…");await loadBrain(loadedId||modelPick);
+      if(engine)out=await gen([{role:"system",content:shortPrompt()},{role:"user",content:text}]);
+    }
+    if(!out.trim()&&!stopFlag)out="Sorry, I couldn't come up with an answer. Try asking again, or switch brains in ⚙ (Lite or Standard usually work best).";
+    out=finishReply(bubble,out.trim()||"(stopped)");speakStream(out,true);liveCap(out);history.push({role:"assistant",content:out});
   }catch(e){
     history.pop();
     const msg=String(e&&e.message||e);
@@ -359,7 +377,7 @@ function showSetup(msg){$("setup").classList.remove("hide");$("startBtn").disabl
 let loadedId=null,loadedIdPrev=null,crashes=0,f16=null;
 async function resolveId(id){
   // phones whose GPU can't do 16-bit math need the 32-bit version of the brain
-  if(f16===null){try{const a=await navigator.gpu.requestAdapter();f16=!!(a&&a.features.has("shader-f16"))}catch(e){f16=false}}
+  if(f16===null){try{const a=await navigator.gpu.requestAdapter();f16=!!(a&&a.features.has("shader-f16"))&&!store.get("nova_f32",false)}catch(e){f16=false}}
   if(f16)return id;
   const alt=id.replace("q4f16_1","q4f32_1");
   try{if(webllm.prebuiltAppConfig.model_list.some(m=>m.model_id===alt))return alt}catch(e){}
@@ -538,6 +556,7 @@ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 let rec=null,micMode="off",convo=false,emptyTries=0,quickEnds=0,restartT=null;
 const STOP_RE=/^(stop|stop listening|goodbye|good bye|bye|that's all|that is all|never mind|nevermind|cancel|we're done|i'm done)[.!]?$/i;
 if(!SR){$("mic").style.display="none";$("hfBox").innerHTML='<p class="note" style="margin-top:0">Voice typing isn\'t supported in this browser. Use the latest Chrome on Android.</p>'}
+function dedupe(t){const w=t.split(/\s+/);if(w.length>=2&&w.length%2===0){const h=w.length/2;if(w.slice(0,h).join(" ").toLowerCase()===w.slice(h).join(" ").toLowerCase())return w.slice(0,h).join(" ")}return t}
 function wakeName(){return (settings.aiName||"Nova").toLowerCase().replace(/[^a-z0-9 ]/g,"").trim()||"nova"}
 function micUI(){
   const m=$("mic");m.classList.toggle("live",micMode==="command");m.classList.toggle("wake",micMode==="wake");
@@ -557,7 +576,7 @@ function micError(e){
 function listenCommand(){
   if(!SR||!engine||busy)return;stopRec();stopSpeak();
   micMode="command";const r=newRec(false);rec=r;let finalText="";if(live)$("liveYou").textContent="";micUI();
-  r.onresult=e=>{let interim="";finalText="";for(const x of e.results){if(x.isFinal)finalText+=x[0].transcript;else interim+=x[0].transcript}$("input").value=(finalText+interim).trim();autoGrow();if(live)$("liveYou").textContent=$("input").value};
+  r.onresult=e=>{let best="";for(const x of e.results){if(x[0].transcript.trim().length>=best.length)best=x[0].transcript.trim()}const t=dedupe(best);finalText=e.results[e.results.length-1].isFinal?t:"";$("input").value=t;autoGrow();if(live)$("liveYou").textContent=t};
   r.onerror=micError;
   r.onend=()=>{
     if(rec!==r)return;rec=null;micMode="off";
