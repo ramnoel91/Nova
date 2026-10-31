@@ -1,6 +1,6 @@
 // Nova service worker: keeps the app (and its AI engine code) available offline.
 // The AI model itself is stored separately by the engine after the first download.
-const CACHE = "nova-app-v2";
+const CACHE = "nova-app-v3";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./maskable-icon-512.png"];
 
 self.addEventListener("install", e => {

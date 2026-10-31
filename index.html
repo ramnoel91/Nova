@@ -221,7 +221,8 @@ const PERSONAS={
  sensei:{label:"Sensei",desc:"Patient teacher, explains well",prompt:"You are a patient teacher. Explain things simply with examples, check understanding, and encourage learning. Great at teaching beginners to code."}
 };
 const MODELS=[
- {id:"Qwen2.5-0.5B-Instruct-q4f16_1-MLC",name:"Lite",desc:"Fastest · ~300 MB download · basic smarts"},
+ {id:"SmolLM2-360M-Instruct-q4f16_1-MLC",name:"Tiny",desc:"Lightest · ~250 MB · works on most phones · simple chats"},
+ {id:"Qwen2.5-0.5B-Instruct-q4f16_1-MLC",name:"Lite",desc:"Fast · ~300 MB download · basic smarts"},
  {id:"Llama-3.2-1B-Instruct-q4f16_1-MLC",name:"Standard",desc:"Balanced · ~700 MB download · good for most phones"},
  {id:"Qwen2.5-1.5B-Instruct-q4f16_1-MLC",name:"Smart",desc:"Smartest · ~1 GB download · needs a newer phone"}
 ];
@@ -320,13 +321,15 @@ function systemPrompt(){
 
 async function send(text){
   text=(text||$("input").value).trim();if(!text||busy)return;
-  if(!engine)return;
+  if(!engine){addBubble("ai","Nova's brain isn't loaded yet — pick one to start.").classList.add("err");showSetup();return}
   $("input").value="";autoGrow();
   history.push({role:"user",content:text});addBubble("user",text);
   $("hero").classList.add("small");$("chips").style.display="none";
   stopRec();stopSpeak();if(live){$("liveNova").textContent=""}busy=true;stopFlag=false;$("send").textContent="■";orb("thinking");
   const bubble=addBubble("ai","…");
-  const msgs=[{role:"system",content:systemPrompt()},...history.slice(-12).map(m=>({role:m.role,content:m.content}))];
+  let recent=[],chars=0;for(let i=history.length-1;i>=0&&recent.length<10;i--){const c=history[i].content.slice(0,1500);if(chars+c.length>3500&&recent.length)break;chars+=c.length;recent.unshift({role:history[i].role,content:c})}
+  while(recent.length&&recent[0].role!=="user")recent.shift();
+  const msgs=[{role:"system",content:systemPrompt()},...recent];
   let out="";
   try{
     const stream=await engine.chat.completions.create({messages:msgs,stream:true,temperature:0.7,max_tokens:600});
@@ -336,24 +339,44 @@ async function send(text){
     }
     out=finishReply(bubble,out.trim()||"(no reply)");speakStream(out,true);liveCap(out);history.push({role:"assistant",content:out});
   }catch(e){
-    history.pop();setBubble(bubble,"Something went wrong: "+(e.message||e));bubble.classList.add("err");
-    try{await engine.resetChat()}catch(_){}
+    history.pop();
+    const msg=String(e&&e.message||e);
+    if(/not loaded|mapAsync|GPU|device|lost|memory|reload/i.test(msg)){
+      crashes++;engine=null;
+      setBubble(bubble,crashes>=2?"Nova's brain crashed again — your phone is running low on graphics memory. Pick a lighter brain (Tiny or Lite) and close other apps.":"Nova's brain hiccuped (your phone ran low on graphics memory). Restarting it — try your message again in a moment.");
+      bubble.classList.add("err");
+      setTimeout(()=>{if(crashes>=2){showSetup("Pick a lighter brain — Tiny works on most phones.")}else{showSetup("Restarting Nova's brain…");loadBrain(loadedId||modelPick)}},400);
+    }else{
+      setBubble(bubble,"Something went wrong: "+msg);bubble.classList.add("err");
+      try{await engine.resetChat()}catch(_){}
+    }
   }finally{store.set("nova_history",history);busy=false;$("send").textContent="➤";orb("");afterTurn()}
 }
 
 // ---------- brain setup ----------
 function drawModels(){$("models").innerHTML="";MODELS.forEach(m=>{const b=document.createElement("button");b.className=m.id===modelPick?"sel":"";b.innerHTML=`<b>${m.name}</b><small>${m.desc}</small>`;b.onclick=()=>{modelPick=m.id;drawModels()};$("models").appendChild(b)})}
 function showSetup(msg){$("setup").classList.remove("hide");$("startBtn").disabled=false;$("models").style.display="flex";$("barFill").style.width="0";$("prog").textContent="";if(msg){$("setupMsg").textContent=msg}drawModels()}
+let loadedId=null,loadedIdPrev=null,crashes=0,f16=null;
+async function resolveId(id){
+  // phones whose GPU can't do 16-bit math need the 32-bit version of the brain
+  if(f16===null){try{const a=await navigator.gpu.requestAdapter();f16=!!(a&&a.features.has("shader-f16"))}catch(e){f16=false}}
+  if(f16)return id;
+  const alt=id.replace("q4f16_1","q4f32_1");
+  try{if(webllm.prebuiltAppConfig.model_list.some(m=>m.model_id===alt))return alt}catch(e){}
+  return id;
+}
 async function loadBrain(id){
   $("startBtn").disabled=true;$("models").style.display="none";$("setupOrb").classList.add("thinking");
   $("prog").classList.remove("warn");$("prog").textContent="Starting…";
   try{
     if(engine){await engine.unload();engine=null}
-    engine=await webllm.CreateMLCEngine(id,{initProgressCallback:r=>{
+    const realId=await resolveId(id);
+    engine=await webllm.CreateMLCEngine(realId,{initProgressCallback:r=>{
       $("barFill").style.width=Math.round((r.progress||0)*100)+"%";
       $("prog").textContent=r.text.replace(/\[.*?\]\s*/,"").slice(0,140);
-    }});
-    store.set("nova_model",id);modelPick=id;
+    }},{context_window_size:2048});
+    loadedId=id;
+    store.set("nova_model",id);modelPick=id;if(id!==loadedIdPrev)crashes=0;loadedIdPrev=id;
     $("setup").classList.add("hide");$("setupOrb").classList.remove("thinking");setTimeout(resumeIdle,300);
     $("status").textContent="ONLINE";$("send").disabled=false;
     $("brainNote").textContent="Using: "+(MODELS.find(m=>m.id===id)?.name||id);
@@ -367,7 +390,7 @@ async function loadBrain(id){
 $("startBtn").onclick=()=>loadBrain(modelPick);
 $("switchBrain").onclick=()=>{$("panel").classList.remove("open");showSetup("Pick a different brain. Ones you've already downloaded load fast.")};
 $("clearBrain").onclick=async()=>{
-  try{for(const m of MODELS){await webllm.deleteModelAllInfoInCache(m.id)}}catch(e){}
+  for(const m of MODELS){for(const v of [m.id,m.id.replace("q4f16_1","q4f32_1")]){try{await webllm.deleteModelAllInfoInCache(v)}catch(e){}}}
   $("clearBrain").textContent="Deleted ✓";setTimeout(()=>$("clearBrain").textContent="Delete downloaded brains (free up space)",2000);
 };
 
@@ -628,7 +651,7 @@ if(!navigator.gpu){
     try{webllm=await import("https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2/+esm")}
     catch(e){$("prog").classList.add("warn");$("prog").textContent="Couldn't load the AI engine. Connect to the internet for the first launch, then reload.";return}
     $("startBtn").disabled=false;$("prog").textContent="";
-    let cached=false;try{cached=await webllm.hasModelInCache(modelPick)}catch(e){}
+    let cached=false;try{cached=await webllm.hasModelInCache(await resolveId(modelPick))}catch(e){}
     if(cached)loadBrain(modelPick);
   })();
 }
